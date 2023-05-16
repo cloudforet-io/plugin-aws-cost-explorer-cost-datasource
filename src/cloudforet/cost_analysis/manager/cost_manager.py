@@ -40,6 +40,7 @@ class CostManager(BaseManager):
             region: str
             service_code: str
             usage_type: str
+            usage_unit: str
             instance_type: str
             tag_application: str
             tag_environment: str
