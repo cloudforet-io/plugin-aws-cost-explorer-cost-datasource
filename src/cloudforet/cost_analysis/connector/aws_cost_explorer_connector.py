@@ -1,9 +1,5 @@
 import logging
 import boto3
-import io
-import pandas as pd
-import numpy as np
-
 from spaceone.core import utils
 from spaceone.core.connector import BaseConnector
 from spaceone.core.error import *
