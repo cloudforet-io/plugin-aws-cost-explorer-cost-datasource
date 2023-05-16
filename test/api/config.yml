@@ -1,0 +1,6 @@
+GLOBAL:
+  SERVICE: cost_analysis
+  ENDPOINTS:
+    cost_analysis:
+      plugin: localhost:50051
+      #plugin: dev-docker.pyengine.net:50062
