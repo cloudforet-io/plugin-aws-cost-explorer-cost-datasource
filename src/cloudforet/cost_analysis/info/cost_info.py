@@ -13,6 +13,7 @@ def CostInfo(cost_data):
     try:
         info = {
             'cost': float(cost_data['cost']),
+            'usd_cost': float(cost_data['cost']),
             'currency': cost_data['currency'],
             'usage_quantity': float(cost_data.get('usage_quantity')),
             'usage_type': cost_data.get('usage_type'),
@@ -22,6 +23,7 @@ def CostInfo(cost_data):
             'account': cost_data.get('account'),
             'product': cost_data.get('product'),
             'resource': cost_data.get('resource'),
+            'resource_group': cost_data.get('resource_group'),
             'tags': change_struct_type(cost_data['tags']) if 'tags' in cost_data else None,
             'additional_info': change_struct_type(cost_data['additional_info']) if 'additional_info' in cost_data else None,
             'billed_at': utils.datetime_to_iso8601(cost_data['billed_at'])
