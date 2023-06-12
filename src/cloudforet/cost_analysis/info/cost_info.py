@@ -13,7 +13,7 @@ def CostInfo(cost_data):
     try:
         info = {
             'cost': float(cost_data['cost']),
-            'usd_cost': float(cost_data['cost']),
+            'usd_cost': float(cost_data['cost']),   # cost == usd_cost
             'currency': cost_data['currency'],
             'usage_quantity': float(cost_data.get('usage_quantity')),
             'usage_type': cost_data.get('usage_type'),
