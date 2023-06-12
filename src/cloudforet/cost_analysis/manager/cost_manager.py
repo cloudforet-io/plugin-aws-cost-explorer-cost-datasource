@@ -21,7 +21,6 @@ class CostManager(BaseManager):
         start = task_options['start']
         end = datetime.utcnow().strftime('%Y-%m-%d')
         target_regions = self.get_region_list(account_id, start, end)
-        # aws_services = self.aws_ce_connector.list_services()
 
         for region_code in target_regions:
             cost_region_query = self._set_query(account_id, region_code, start, end)
@@ -100,7 +99,13 @@ class CostManager(BaseManager):
                     if az != 'NoAZ':
                         azs.append(az)
 
-        regions = [az[:-1] for az in list(set(azs))]
+        regions = []
+        for az in list(set(azs)):
+            if az[-1] not in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']:
+                regions.append(az)
+            else:
+                regions.append(az[:-1])
+
         return list(set(regions))
 
     @staticmethod
