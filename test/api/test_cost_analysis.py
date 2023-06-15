@@ -11,6 +11,7 @@ AKI = os.environ.get('AWS_ACCESS_KEY_ID', None)
 SAK = os.environ.get('AWS_SECRET_ACCESS_KEY', None)
 ROLE_ARN = os.environ.get('ROLE_ARN', None)
 REGION_NAME = os.environ.get('REGION_NAME', None)
+ACCOUNT_ID = os.environ.get('ACCOUNT', None)
 
 
 if AKI == None or SAK == None:
@@ -68,7 +69,7 @@ class TestCostAPIs(TestCase):
 
     def test_get_data(self):
         options = {}
-        task_options = {'account_id': 'ACCOUNT_ID', 'start': '2023-05-01'}
+        task_options = {'account_id': ACCOUNT_ID, 'start': '2023-06-01'}
 
         res_stream = self.cost_analysis.Cost.get_data(
             {'options': options, 'secret_data': self.secret_data, 'task_options': task_options}
