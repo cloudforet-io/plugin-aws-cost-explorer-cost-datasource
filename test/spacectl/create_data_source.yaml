@@ -1,0 +1,8 @@
+---
+name: AWS Cost Explorer Data Source
+data_source_type: EXTERNAL
+plugin_info:
+  plugin_id: plugin-aws-cost-explorer-cost-datasource
+  secret_data:
+    aws_access_key_id: AWS_ACCESS_KEY
+    aws_secret_access_key: AWS_SECRET_KEY
