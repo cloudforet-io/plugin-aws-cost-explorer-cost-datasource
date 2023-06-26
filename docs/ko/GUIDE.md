@@ -121,4 +121,4 @@ tags:
 
 이제 클라우드포레에서 AWS Cost Explorer 플러그인을 사용하기 위한 준비가 끝났습니다.
 
-마지막으로 [클라우드포레 사용자 가이드](https://cloudforet.io/ko/docs/guides/cost-explorer/quick-start)를 참고하여 DataSouce를 등록하면 비용을 수집할 수 있습니다. 
+마지막으로 [클라우드포레 사용자 가이드](https://cloudforet.io/ko/docs/guides/cost-explorer/quick-start)를 참고하여 DataSource를 등록하면 비용을 수집할 수 있습니다. 
