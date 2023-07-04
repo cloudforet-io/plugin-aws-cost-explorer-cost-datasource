@@ -1,3 +1,4 @@
+SECRET_TYPE_DEFAULT = 'MANUAL'
 PAGE_SIZE = 2000
 GRANULARITY = 'DAILY'
 METRICS = ['UnblendedCost', 'UsageQuantity']

@@ -18,6 +18,7 @@ class AWSCostExplorerConnector(BaseConnector):
         self.session = None
         self.org_client = None
         self.ce_client = None
+        self.sts_client = None
 
     def create_session(self, options: dict, secret_data: dict, schema: str):
         self._check_secret_data(secret_data)
@@ -33,10 +34,17 @@ class AWSCostExplorerConnector(BaseConnector):
         else:
             self._create_session_aws_access_key(aws_access_key_id, aws_secret_access_key, _DEFAULT_REGION)
 
-        self.ce_client = self.session.client('ce')
-        self.org_client = self.session.client('organizations')
+    def get_account_id(self):
+        if self.sts_client is None:
+            self.sts_client = self.session.client('sts')
+
+        response = self.sts_client.get_caller_identity()
+        return response.get('Account')
 
     def list_active_accounts(self):
+        if self.org_client is None:
+            self.org_client = self.session.client('organizations')
+
         accounts = []
         paginator = self.org_client.get_paginator('list_accounts')
         response_iterator = paginator.paginate()
@@ -49,6 +57,9 @@ class AWSCostExplorerConnector(BaseConnector):
         return accounts
 
     def get_cost_and_usage(self, **query):
+        if self.ce_client is None:
+            self.ce_client = self.session.client('ce')
+
         response = self.ce_client.get_cost_and_usage(**query)
         results_by_time = response.get('ResultsByTime', [])
 
