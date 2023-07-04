@@ -2,6 +2,8 @@ import logging
 from datetime import datetime, timedelta
 
 from spaceone.core.manager import BaseManager
+from cloudforet.cost_analysis.error import *
+from cloudforet.cost_analysis.conf.cost_conf import SECRET_TYPE_DEFAULT
 from cloudforet.cost_analysis.connector.aws_cost_explorer_connector import AWSCostExplorerConnector
 from cloudforet.cost_analysis.model.job_model import Tasks
 
@@ -23,11 +25,21 @@ class JobManager(BaseManager):
         start_date = start_time.strftime('%Y-%m-%d')
         changed_time = start_time
 
-        self.aws_ce_connector.create_session(options, secret_data, schema)
+        secret_type = options.get('secret_type', SECRET_TYPE_DEFAULT)
 
-        for account_info in self.aws_ce_connector.list_active_accounts():
-            tasks.append({'task_options': {'account_id': account_info['Id'], 'start': start_date}})
+        if secret_type == 'MANUAL':
+            self.aws_ce_connector.create_session(options, secret_data, schema)
+
+            for account_info in self.aws_ce_connector.list_active_accounts():
+                tasks.append({'task_options': {'account_id': account_info['Id'], 'start': start_date}})
+                changed.append({'start': changed_time})
+
+        elif secret_type == 'USE_SERVICE_ACCOUNT_SECRET':
+            self.aws_ce_connector.create_session(options, secret_data, schema)
+            tasks.append({'task_options': {'account_id': self.aws_ce_connector.get_account_id(), 'start': start_date}})
             changed.append({'start': changed_time})
+        else:
+            raise ERROR_INVALID_SECRET_TYPE(secret_type=options.get('secret_type'))
 
         tasks = Tasks({'tasks': tasks, 'changed': changed})
         tasks.validate()
