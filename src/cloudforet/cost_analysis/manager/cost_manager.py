@@ -23,11 +23,8 @@ class CostManager(BaseManager):
         end = datetime.utcnow().strftime('%Y-%m-%d')
         target_regions = self.get_region_list(account_id, start, end)
 
-        print(f'[get_data] target_regions: {target_regions}]')
-
         for region_code in target_regions:
             cost_region_query = self._set_query(account_id, region_code, start, end)
-            print(f'[get_data] cost_region_query: {cost_region_query}]')
             response_stream = self.aws_ce_connector.get_cost_and_usage(**cost_region_query)
             for results in response_stream:
                 yield self._make_cost_data(results, account_id, region_code)
@@ -94,15 +91,14 @@ class CostManager(BaseManager):
 
     def get_region_list(self, account_id, start, end):
         region_query = self._set_region_query(account_id, start, end)
-
-        print(f'[get_region_list] region_query: {region_query}]')
-
         azs = []
         for results in self.aws_ce_connector.get_cost_and_usage(**region_query):
             for result in results:
                 for group in result.get('Groups', []):
                     az = group.get('Keys', [])[0]
-                    if az != 'NoAZ':
+                    if az == 'NoAZ':
+                        azs.append('global')
+                    else:
                         azs.append(az)
 
         regions = []
