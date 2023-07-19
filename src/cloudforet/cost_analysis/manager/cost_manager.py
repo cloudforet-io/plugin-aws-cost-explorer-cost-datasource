@@ -25,6 +25,7 @@ class CostManager(BaseManager):
 
         for region_code in target_regions:
             cost_region_query = self._set_query(account_id, region_code, start, end)
+            print(f'[get_data] cost_region_query: {cost_region_query}')
             response_stream = self.aws_ce_connector.get_cost_and_usage(**cost_region_query)
             for results in response_stream:
                 yield self._make_cost_data(results, account_id, region_code)
@@ -57,6 +58,7 @@ class CostManager(BaseManager):
                 groups = result.get('Groups', [])
 
                 if not time_period:
+                    print(f'[_make_cost_data] TimePeriod is empty. (account_id: {account_id}, region_code: {region_code}, result: {result})')
                     continue
 
                 for group in groups:
@@ -87,11 +89,15 @@ class CostManager(BaseManager):
                 _LOGGER.error(f'[_make_cost_data] make data error: {e}', exc_info=True)
                 raise e
 
+        print(f'[_make_cost_data][{account_id}][{region_code}] costs_data length: {len(costs_data)}')
         return costs_data
 
     def get_region_list(self, account_id, start, end):
         region_query = self._set_region_query(account_id, start, end)
         azs = []
+
+        print(f'[get_region_list] region_query: {region_query}')
+
         for results in self.aws_ce_connector.get_cost_and_usage(**region_query):
             for result in results:
                 for group in result.get('Groups', []):
@@ -108,6 +114,7 @@ class CostManager(BaseManager):
             else:
                 regions.append(az[:-1])
 
+        print(f'[get_region_list] regions: {list(set(regions))}')
         return list(set(regions))
 
     @staticmethod
