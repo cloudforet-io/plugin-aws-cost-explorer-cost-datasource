@@ -21,16 +21,23 @@ class CostManager(BaseManager):
         account_id = task_options['account_id']
         start = task_options['start']
         end = datetime.utcnow().strftime('%Y-%m-%d')
+
+        cost_region_query = self._set_query(account_id, start, end)
+        print(f'[get_data] cost_region_query: {cost_region_query}')
+        response_stream = self.aws_ce_connector.get_cost_and_usage(**cost_region_query)
+        for results in response_stream:
+            yield self._make_cost_data(results, account_id, None)
+
+        """
         target_regions = self.get_region_list(account_id, start, end)
 
         for region_code in target_regions:
-            cost_region_query = self._set_query(account_id, region_code, start, end)
+            cost_region_query = self._set_query_with_region(account_id, region_code, start, end)
             print(f'[get_data] cost_region_query: {cost_region_query}')
             response_stream = self.aws_ce_connector.get_cost_and_usage(**cost_region_query)
             for results in response_stream:
                 yield self._make_cost_data(results, account_id, region_code)
-
-        yield []
+        """
 
     def _make_cost_data(self, results, account_id, region_code):
         costs_data = []
@@ -138,7 +145,19 @@ class CostManager(BaseManager):
 
         return _query
 
-    def _set_query(self, account_id: str, region_code: str, start: str, end: str):
+    def _set_query(self, account_id: str, start: str, end: str):
+        _query = self._set_default_query(account_id, start, end)
+        _query.update({'Filter': {'Dimensions': {'Key': 'LINKED_ACCOUNT', 'Values': [account_id]}}})
+
+        for dimension in GROUP_BY_DIMENSIONS:
+            _query['GroupBy'].append({
+                'Type': 'DIMENSION',
+                'Key': dimension
+            })
+
+        return _query
+
+    def _set_query_with_region(self, account_id: str, region_code: str, start: str, end: str):
         _query = self._set_default_query(account_id, start, end)
 
         _query.update({'Filter': {'And': [
