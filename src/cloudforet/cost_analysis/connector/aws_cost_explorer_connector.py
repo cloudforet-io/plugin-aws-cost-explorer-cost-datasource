@@ -62,12 +62,13 @@ class AWSCostExplorerConnector(BaseConnector):
 
         response = self.ce_client.get_cost_and_usage(**query)
         results_by_time = response.get('ResultsByTime', [])
+        return results_by_time
 
-        page_count = int(len(results_by_time) / PAGE_SIZE) + 1
-
-        for page_num in range(page_count):
-            offset = PAGE_SIZE * page_num
-            yield results_by_time[offset:offset + PAGE_SIZE]
+        # page_count = int(len(results_by_time) / PAGE_SIZE) + 1
+        #
+        # for page_num in range(page_count):
+        #     offset = PAGE_SIZE * page_num
+        #     yield results_by_time[offset:offset + PAGE_SIZE]
 
     @staticmethod
     def _check_secret_data(secret_data):
