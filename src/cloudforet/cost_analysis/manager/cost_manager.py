@@ -1,6 +1,5 @@
 import logging
-from datetime import datetime
-from cloudforet.cost_analysis.error import *
+from datetime import datetime, timedelta
 from spaceone.core.error import *
 from spaceone.core.manager import BaseManager
 from cloudforet.cost_analysis.connector.aws_cost_explorer_connector import AWSCostExplorerConnector
@@ -20,27 +19,55 @@ class CostManager(BaseManager):
 
         account_id = task_options['account_id']
         start = task_options['start']
-        end = datetime.utcnow().strftime('%Y-%m-%d')
 
-        cost_region_query = self._set_query(account_id, start, end)
-        print(f'[get_data] cost_region_query: {cost_region_query}')
-        response_stream = self.aws_ce_connector.get_cost_and_usage(**cost_region_query)
-        for results in response_stream:
-            yield self._make_cost_data(results, account_id, None)
+        _end = datetime.utcnow() + timedelta(days=5)
+        end = _end.strftime('%Y-%m-%d')
 
-        """
-        target_regions = self.get_region_list(account_id, start, end)
+        cost_query = self._set_query(account_id, start, end)
+        print(f'[get_data] cost_query: {cost_query}')
 
-        for region_code in target_regions:
-            cost_region_query = self._set_query_with_region(account_id, region_code, start, end)
-            print(f'[get_data] cost_region_query: {cost_region_query}')
-            response_stream = self.aws_ce_connector.get_cost_and_usage(**cost_region_query)
-            for results in response_stream:
-                yield self._make_cost_data(results, account_id, region_code)
-        """
+        for costs_data in self._get_cost_and_usage(cost_query):
+            yield self._make_cost_data(costs_data, account_id)
 
-    def _make_cost_data(self, results, account_id, region_code):
+    def _get_cost_and_usage(self, query):
+        while True:
+            print(f'[_get_cost_and_usage] query: {query}')
+            results = self.aws_ce_connector.get_cost_and_usage(**query)
+            print(f'[_get_cost_and_usage] results via AWS CE: {len(results)}')
+            costs_data, is_continue, next_start = self._get_costs_data(results)
+            yield costs_data
+
+            if is_continue and next_start:
+                query['TimePeriod']['Start'] = next_start
+            else:
+                break
+
+    @staticmethod
+    def _get_costs_data(results):
+        is_continue = False
+        next_start = None
         costs_data = []
+
+        for result in results:
+            time_period = result.get('TimePeriod', {})
+
+            if len(costs_data) > AWS_COST_DATA_MAX_PAGE:
+                print(f'[_get_costs_data] is continue and next_start: {time_period.get("Start")}')
+                is_continue = True
+                next_start = time_period.get('Start')
+                break
+            else:
+                # print(f'[_get_costs_data] costs_data: {len(costs_data)}, time: {time_period}')
+                _groups = result.get('Groups', [])
+                for _group in _groups:
+                    _group.update({'TimePeriod': time_period})
+
+                costs_data.extend(_groups)
+
+        return costs_data, is_continue, next_start
+
+    def _make_cost_data(self, costs_data, account_id):
+        costs_info = []
 
         """ Source Data Model
         class CostSummaryItem(BaseModel):
@@ -58,46 +85,36 @@ class CostManager(BaseManager):
             usage_quantity: float
             usage_cost: float
         """
-
-        for result in results:
+        for _cost in costs_data:
             try:
-                time_period = result.get('TimePeriod', {})
-                groups = result.get('Groups', [])
+                time_period = _cost.get('TimePeriod', {})
+                product, raw_usage_type = self._get_info_from_group_key(_cost)
+                metrics_info = _cost.get('Metrics', {})
+                cost, currency = self._get_cost_info_from_metric(metrics_info)
+                usage_quantity, usage_unit = self._get_usage_info_from_metric(metrics_info)
 
-                if not time_period:
-                    print(f'[_make_cost_data] TimePeriod is empty. (account_id: {account_id}, region_code: {region_code}, result: {result})')
-                    continue
+                data = {
+                    'cost': cost,
+                    'currency': currency,
+                    'usage_quantity': usage_quantity,
+                    'usage_type': raw_usage_type,
+                    'usage_unit': usage_unit,
+                    'provider': 'aws',
+                    'account': account_id,
+                    'product': product,
+                    'resource': '',
+                    'billed_at': self._set_billed_at(time_period.get('Start')),
+                    'additional_info': self._get_additional_info(product, raw_usage_type),
+                    'tags': {}
+                }
 
-                for group in groups:
-                    product, raw_usage_type = self._get_info_from_group_key(group)
-                    metrics_info = group.get('Metrics', {})
-                    cost, currency = self._get_cost_info_from_metric(metrics_info)
-                    usage_quantity, usage_unit = self._get_usage_info_from_metric(metrics_info)
-
-                    data = {
-                        'cost': cost,
-                        'currency': currency,
-                        'usage_quantity': usage_quantity,
-                        'usage_type': raw_usage_type,
-                        'usage_unit': usage_unit,
-                        'provider': 'aws',
-                        'region_code': region_code,
-                        'account': account_id,
-                        'product': product,
-                        'resource': '',
-                        'billed_at': self._set_billed_at(time_period.get('Start')),
-                        'additional_info': self._get_additional_info(product, raw_usage_type),
-                        'tags': {}
-                    }
-
-                    costs_data.append(data)
-
+                costs_info.append(data)
             except Exception as e:
                 _LOGGER.error(f'[_make_cost_data] make data error: {e}', exc_info=True)
                 raise e
 
-        print(f'[_make_cost_data][{account_id}][{region_code}] costs_data length: {len(costs_data)}')
-        return costs_data
+        print(f'[_make_cost_data][{account_id}] costs_info length: {len(costs_info)}')
+        return costs_info
 
     def get_region_list(self, account_id, start, end):
         region_query = self._set_region_query(account_id, start, end)
