@@ -8,7 +8,6 @@ from cloudforet.cost_analysis.connector.aws_cost_explorer_connector import AWSCo
 from cloudforet.cost_analysis.model.job_model import Tasks
 
 _LOGGER = logging.getLogger(__name__)
-_DEFAULT_DATABASE = 'MZC'
 
 
 class JobManager(BaseManager):
@@ -25,6 +24,7 @@ class JobManager(BaseManager):
         start_date = start_time.strftime('%Y-%m-%d')
         changed_time = start_time
 
+        # self._check_options(options)
         secret_type = options.get('secret_type', SECRET_TYPE_DEFAULT)
 
         if secret_type == 'MANUAL':
@@ -60,3 +60,12 @@ class JobManager(BaseManager):
         start_time = start_time.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
 
         return start_time
+
+    # @staticmethod
+    # def _check_options(options):
+    #     if secret_type := options.get('secret_type'):
+    #         if secret_type not in ['MANUAL', 'USE_SERVICE_ACCOUNT_SECRET']:
+    #             raise ERROR_INVALID_SECRET_TYPE(secret_type=secret_type)
+    #
+    #     else:
+    #         raise ERROR_REQUIRED_PARAMETER(key='options.secret_type')

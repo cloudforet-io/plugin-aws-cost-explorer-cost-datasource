@@ -35,6 +35,7 @@ class JobService(BaseService):
             list of task_data
 
         """
+
         options = params['options']
         secret_data = params['secret_data']
         schema = params.get('schema')

@@ -3,7 +3,6 @@ import boto3
 from spaceone.core import utils
 from spaceone.core.connector import BaseConnector
 from spaceone.core.error import *
-from cloudforet.cost_analysis.conf.cost_conf import *
 
 __all__ = ['AWSCostExplorerConnector']
 
@@ -61,14 +60,33 @@ class AWSCostExplorerConnector(BaseConnector):
             self.ce_client = self.session.client('ce')
 
         response = self.ce_client.get_cost_and_usage(**query)
+        next_page_token = response.get('NextPageToken')
         results_by_time = response.get('ResultsByTime', [])
-        return results_by_time
+
+        costs_data = self._convert_costs_data(results_by_time)
+        yield costs_data
+
+        if next_page_token:
+            query.update({'NextPageToken': next_page_token})
+            yield from self.get_cost_and_usage(**query)
 
         # page_count = int(len(results_by_time) / PAGE_SIZE) + 1
         #
         # for page_num in range(page_count):
         #     offset = PAGE_SIZE * page_num
         #     yield results_by_time[offset:offset + PAGE_SIZE]
+
+    @staticmethod
+    def _convert_costs_data(results_by_time):
+        costs_data = []
+        for result in results_by_time:
+            time_period = result.get('TimePeriod', {})
+            _groups = result.get('Groups', [])
+            for _group in _groups:
+                _group.update({'TimePeriod': time_period})
+                costs_data.append(_group)
+
+        return costs_data
 
     @staticmethod
     def _check_secret_data(secret_data):

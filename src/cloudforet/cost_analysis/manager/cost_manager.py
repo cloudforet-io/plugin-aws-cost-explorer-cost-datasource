@@ -1,11 +1,13 @@
 import logging
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from spaceone.core.error import *
 from spaceone.core.manager import BaseManager
 from cloudforet.cost_analysis.connector.aws_cost_explorer_connector import AWSCostExplorerConnector
 from cloudforet.cost_analysis.conf.cost_conf import *
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class CostManager(BaseManager):
 
@@ -20,14 +22,17 @@ class CostManager(BaseManager):
         account_id = task_options['account_id']
         start = task_options['start']
 
-        _end = datetime.utcnow() + timedelta(days=5)
+        _end = datetime.utcnow().replace(day=1) + relativedelta(months=1)
         end = _end.strftime('%Y-%m-%d')
 
         cost_query = self._set_query(account_id, start, end)
         print(f'[get_data] cost_query: {cost_query}')
 
-        for costs_data in self._get_cost_and_usage(cost_query):
-            yield self._make_cost_data(costs_data, account_id)
+        costs_iterator = self.aws_ce_connector.get_cost_and_usage(**cost_query)
+        return self._make_cost_data(costs_iterator, account_id)
+
+        # for costs_data in self._get_cost_and_usage(cost_query):
+        #     yield self._make_cost_data(costs_data, account_id)
 
     def _get_cost_and_usage(self, query):
         while True:
@@ -66,9 +71,7 @@ class CostManager(BaseManager):
 
         return costs_data, is_continue, next_start
 
-    def _make_cost_data(self, costs_data, account_id):
-        costs_info = []
-
+    def _make_cost_data(self, costs_iterator, account_id):
         """ Source Data Model
         class CostSummaryItem(BaseModel):
             billed_at: datetime
@@ -85,36 +88,38 @@ class CostManager(BaseManager):
             usage_quantity: float
             usage_cost: float
         """
-        for _cost in costs_data:
-            try:
-                time_period = _cost.get('TimePeriod', {})
-                product, raw_usage_type = self._get_info_from_group_key(_cost)
-                metrics_info = _cost.get('Metrics', {})
-                cost, currency = self._get_cost_info_from_metric(metrics_info)
-                usage_quantity, usage_unit = self._get_usage_info_from_metric(metrics_info)
 
-                data = {
-                    'cost': cost,
-                    'currency': currency,
-                    'usage_quantity': usage_quantity,
-                    'usage_type': raw_usage_type,
-                    'usage_unit': usage_unit,
-                    'provider': 'aws',
-                    'account': account_id,
-                    'product': product,
-                    'resource': '',
-                    'billed_at': self._set_billed_at(time_period.get('Start')),
-                    'additional_info': self._get_additional_info(product, raw_usage_type),
-                    'tags': {}
-                }
+        for _costs_data in costs_iterator:
+            costs_info = []
+            for _cost_data in _costs_data:
+                try:
+                    time_period = _cost_data.get('TimePeriod', {})
+                    product, raw_usage_type = self._get_info_from_group_key(_cost_data)
+                    metrics_info = _cost_data.get('Metrics', {})
+                    cost, currency = self._get_cost_info_from_metric(metrics_info)
+                    usage_quantity, usage_unit = self._get_usage_info_from_metric(metrics_info)
 
-                costs_info.append(data)
-            except Exception as e:
-                _LOGGER.error(f'[_make_cost_data] make data error: {e}', exc_info=True)
-                raise e
+                    data = {
+                        'cost': cost,
+                        'currency': currency,
+                        'usage_quantity': usage_quantity,
+                        'usage_type': raw_usage_type,
+                        'usage_unit': usage_unit,
+                        'provider': 'aws',
+                        'account': account_id,
+                        'product': product,
+                        'resource': '',
+                        'billed_at': self._set_billed_at(time_period.get('Start')),
+                        'additional_info': self._get_additional_info(product, raw_usage_type),
+                        'tags': {}
+                    }
+                    costs_info.append(data)
+                except Exception as e:
+                    _LOGGER.error(f'[_make_cost_data] make data error: {e}', exc_info=True)
+                    raise e
 
-        print(f'[_make_cost_data][{account_id}] costs_info length: {len(costs_info)}')
-        return costs_info
+            print(f'[_make_cost_data][{account_id}] costs_info length: {len(costs_info)}')
+            yield costs_info
 
     def get_region_list(self, account_id, start, end):
         region_query = self._set_region_query(account_id, start, end)
