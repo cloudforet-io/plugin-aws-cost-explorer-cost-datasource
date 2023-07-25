@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from spaceone.core.error import *
 from spaceone.core.manager import BaseManager
@@ -26,50 +26,10 @@ class CostManager(BaseManager):
         end = _end.strftime('%Y-%m-%d')
 
         cost_query = self._set_query(account_id, start, end)
-        print(f'[get_data] cost_query: {cost_query}')
+        _LOGGER.debug(f'[get_data] cost_query: {cost_query}')
 
         costs_iterator = self.aws_ce_connector.get_cost_and_usage(**cost_query)
         return self._make_cost_data(costs_iterator, account_id)
-
-        # for costs_data in self._get_cost_and_usage(cost_query):
-        #     yield self._make_cost_data(costs_data, account_id)
-
-    def _get_cost_and_usage(self, query):
-        while True:
-            print(f'[_get_cost_and_usage] query: {query}')
-            results = self.aws_ce_connector.get_cost_and_usage(**query)
-            print(f'[_get_cost_and_usage] results via AWS CE: {len(results)}')
-            costs_data, is_continue, next_start = self._get_costs_data(results)
-            yield costs_data
-
-            if is_continue and next_start:
-                query['TimePeriod']['Start'] = next_start
-            else:
-                break
-
-    @staticmethod
-    def _get_costs_data(results):
-        is_continue = False
-        next_start = None
-        costs_data = []
-
-        for result in results:
-            time_period = result.get('TimePeriod', {})
-
-            if len(costs_data) > AWS_COST_DATA_MAX_PAGE:
-                print(f'[_get_costs_data] is continue and next_start: {time_period.get("Start")}')
-                is_continue = True
-                next_start = time_period.get('Start')
-                break
-            else:
-                # print(f'[_get_costs_data] costs_data: {len(costs_data)}, time: {time_period}')
-                _groups = result.get('Groups', [])
-                for _group in _groups:
-                    _group.update({'TimePeriod': time_period})
-
-                costs_data.extend(_groups)
-
-        return costs_data, is_continue, next_start
 
     def _make_cost_data(self, costs_iterator, account_id):
         """ Source Data Model
@@ -89,6 +49,7 @@ class CostManager(BaseManager):
             usage_cost: float
         """
 
+        total_cost_count = 0
         for _costs_data in costs_iterator:
             costs_info = []
             for _cost_data in _costs_data:
@@ -118,14 +79,16 @@ class CostManager(BaseManager):
                     _LOGGER.error(f'[_make_cost_data] make data error: {e}', exc_info=True)
                     raise e
 
-            print(f'[_make_cost_data][{account_id}] costs_info length: {len(costs_info)}')
+            costs_info_count = len(costs_info)
+            total_cost_count += costs_info_count
+            _LOGGER.debug(f'[_make_cost_data] Account ID: {account_id} - Progress (+{costs_info_count} / {total_cost_count})')
             yield costs_info
 
     def get_region_list(self, account_id, start, end):
         region_query = self._set_region_query(account_id, start, end)
         azs = []
 
-        print(f'[get_region_list] region_query: {region_query}')
+        _LOGGER.debug(f'[get_region_list] region_query: {region_query}')
 
         for results in self.aws_ce_connector.get_cost_and_usage(**region_query):
             for result in results:
@@ -143,7 +106,7 @@ class CostManager(BaseManager):
             else:
                 regions.append(az[:-1])
 
-        print(f'[get_region_list] regions: {list(set(regions))}')
+        _LOGGER.debug(f'[get_region_list] regions: {list(set(regions))}')
         return list(set(regions))
 
     @staticmethod
@@ -248,21 +211,6 @@ class CostManager(BaseManager):
 
         if 'BoxUsage:' in usage_type:
             instance_type = usage_type.split('BoxUsage:')[-1]
-        elif product == 'Amazon CloudFront':
-            if usage_type.find('-HTTPS') > 0:
-                instance_type = 'requests.https'
-            elif usage_type.find('-Out-Bytes') > 0:
-                instance_type = 'data-transfer.out'
-            else:
-                instance_type = 'requests.http'
-        else:
-            if usage_type.find('-In-Bytes') > 0:
-                instance_type = 'data-transfer.in'
-            elif usage_type.find('-Out-Bytes') > 0:
-                instance_type = 'data-transfer.out'
-            elif usage_type.find('-Bytes') > 0 \
-                    and usage_type.find('-DataProcessing-') == -1 and usage_type.find('-DataScanned-') == -1:
-                instance_type = 'data-transfer.etc'
 
         if instance_type:
             additional_info.update({'Instance Type': instance_type})

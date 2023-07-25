@@ -60,21 +60,14 @@ class AWSCostExplorerConnector(BaseConnector):
             self.ce_client = self.session.client('ce')
 
         response = self.ce_client.get_cost_and_usage(**query)
-        next_page_token = response.get('NextPageToken')
         results_by_time = response.get('ResultsByTime', [])
 
         costs_data = self._convert_costs_data(results_by_time)
         yield costs_data
 
-        if next_page_token:
+        if next_page_token := response.get('NextPageToken'):
             query.update({'NextPageToken': next_page_token})
             yield from self.get_cost_and_usage(**query)
-
-        # page_count = int(len(results_by_time) / PAGE_SIZE) + 1
-        #
-        # for page_num in range(page_count):
-        #     offset = PAGE_SIZE * page_num
-        #     yield results_by_time[offset:offset + PAGE_SIZE]
 
     @staticmethod
     def _convert_costs_data(results_by_time):
