@@ -35,6 +35,7 @@ setup(
         'spaceone-api',
         'schematics',
         'boto3',
+        'pytz'
     ],
     zip_safe=False,
 )

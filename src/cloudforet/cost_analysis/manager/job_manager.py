@@ -1,4 +1,5 @@
 import logging
+import pytz
 from datetime import datetime, timedelta
 
 from spaceone.core.manager import BaseManager
@@ -24,6 +25,7 @@ class JobManager(BaseManager):
         start_date = start_time.strftime('%Y-%m-%d')
         changed_time = start_time
 
+        # For compatibility
         # self._check_options(options)
         secret_type = options.get('secret_type', SECRET_TYPE_DEFAULT)
 
@@ -49,6 +51,12 @@ class JobManager(BaseManager):
     def _get_start_time(start, last_synchronized_at=None):
 
         if start:
+            max_start_time: datetime = datetime.utcnow() - timedelta(days=365)
+            max_start_time = max_start_time.replace(day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=pytz.UTC)
+
+            if start < max_start_time:
+                raise ERROR_INVALID_PARAMETER(key='start', reason='start date is too old. (Max: 12 months)')
+
             start_time: datetime = start
         elif last_synchronized_at:
             start_time: datetime = last_synchronized_at - timedelta(days=7)
