@@ -34,7 +34,7 @@ class CostManager(BaseManager):
     def _make_cost_data(self, costs_iterator, account_id):
         """ Source Data Model
         class CostSummaryItem(BaseModel):
-            billed_at: datetime
+            billed_date: str
             region: str
             service_code: str
             usage_type: str
@@ -57,21 +57,19 @@ class CostManager(BaseManager):
                     time_period = _cost_data.get('TimePeriod', {})
                     product, raw_usage_type = self._get_info_from_group_key(_cost_data)
                     metrics_info = _cost_data.get('Metrics', {})
-                    cost, currency = self._get_cost_info_from_metric(metrics_info)
+                    cost = self._get_cost_info_from_metric(metrics_info)
                     usage_quantity, usage_unit = self._get_usage_info_from_metric(metrics_info)
 
                     data = {
                         'cost': cost,
-                        'currency': currency,
                         'usage_quantity': usage_quantity,
                         'usage_type': raw_usage_type,
                         'usage_unit': usage_unit,
                         'provider': 'aws',
-                        'account': account_id,
                         'product': product,
                         'resource': '',
-                        'billed_at': self._set_billed_at(time_period.get('Start')),
-                        'additional_info': self._get_additional_info(product, raw_usage_type),
+                        'billed_date': time_period.get('Start'),
+                        'additional_info': self._get_additional_info(account_id, raw_usage_type),
                         'tags': {}
                     }
                     costs_info.append(data)
@@ -171,7 +169,7 @@ class CostManager(BaseManager):
     @staticmethod
     def _get_cost_info_from_metric(metrics):
         _cost_info = metrics.get(COST_METRIC, {})
-        return _cost_info.get('Amount', 0), _cost_info.get('Unit', 'USD')
+        return _cost_info.get('Amount', 0)
 
     @staticmethod
     def _get_usage_info_from_metric(metrics):
@@ -196,6 +194,7 @@ class CostManager(BaseManager):
             'GroupBy': [],
         }
 
+    # DEPRECATED
     @staticmethod
     def _set_billed_at(start: str):
         try:
@@ -205,8 +204,8 @@ class CostManager(BaseManager):
             return None
 
     @staticmethod
-    def _get_additional_info(product, usage_type):
-        additional_info = {}
+    def _get_additional_info(account_id, usage_type):
+        additional_info = {'account_id': account_id}
         instance_type = None
 
         if 'BoxUsage:' in usage_type:
