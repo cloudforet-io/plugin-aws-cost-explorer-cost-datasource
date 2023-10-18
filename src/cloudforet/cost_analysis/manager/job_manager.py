@@ -23,7 +23,7 @@ class JobManager(BaseManager):
 
         start_time = self._get_start_time(start, last_synchronized_at)
         start_date = start_time.strftime('%Y-%m-%d')
-        changed_time = start_date
+        changed_time = start_time.strftime('%Y-%m')
 
         # For compatibility
         # self._check_options(options)
