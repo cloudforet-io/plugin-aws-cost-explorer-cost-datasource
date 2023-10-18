@@ -15,8 +15,8 @@ class Task(Model):
 
 
 class Changed(Model):
-    start = DateTimeType(required=True)
-    end = DateTimeType(default=None)
+    start = StringType(required=True)
+    end = StringType(default=None)
     filter = DictType(StringType, default={})
 
 
