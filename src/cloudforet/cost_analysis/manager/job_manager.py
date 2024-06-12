@@ -38,8 +38,14 @@ class JobManager(BaseManager):
 
         elif secret_type == 'USE_SERVICE_ACCOUNT_SECRET':
             self.aws_ce_connector.create_session(options, secret_data, schema)
-            tasks.append({'task_options': {'account_id': self.aws_ce_connector.get_account_id(), 'start': start_date}})
-            changed.append({'start': changed_time})
+            aws_account_id = self.aws_ce_connector.get_account_id()
+            tasks.append({'task_options': {'account_id': aws_account_id, 'start': start_date}})
+            changed.append({
+                'start': changed_time,
+                'filter': {
+                    'additional_info.account_id': aws_account_id
+                }
+            })
         else:
             raise ERROR_INVALID_SECRET_TYPE(secret_type=options.get('secret_type'))
 
