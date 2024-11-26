@@ -31,7 +31,7 @@ setup(
     license='Apache License 2.0',
     packages=find_packages(),
     install_requires=[
-        'spaceone-api',
+        'spaceone-api==1.12.54',
         'schematics',
         'pytz'
     ],
